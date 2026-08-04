@@ -858,9 +858,22 @@ async function enterAsEmployee(empUid, errEl){
   showGate();
   return true;
 }
+// PENTING: dulu pakai signInWithPopup(), tapi popup di browser HP sering
+// gagal secara acak -- bisa kena blokir cookie pihak ketiga, kena tutup
+// otomatis, atau nyangkut di halaman "The requested action is invalid".
+// signInWithRedirect() jauh lebih stabil di HP karena tidak butuh jendela
+// pop-up maupun cookie pihak ketiga sama sekali -- alurnya pindah halaman
+// penuh ke Google lalu balik lagi. Konsekuensinya: hasil login BARU
+// diketahui setelah halaman di-reload, makanya kita simpan dulu "siapa yang
+// sedang login" (admin/karyawan) ke sessionStorage sebelum redirect, lalu
+// baca lagi begitu halaman terbuka kembali (lihat handleGoogleRedirectResult
+// di bagian ADMIN LOGIN & bagian INIT paling bawah file).
+const PENDING_GOOGLE_ROLE_KEY = 'absensiDigitalPendingGoogleRole';
+
 // Login karyawan lewat akun Google. Akun Google punya uid Firebase Auth
 // SENDIRI (beda dari akun ID+PIN), jadi tidak bisa langsung dipakai sebagai
-// ID dokumen employees/{uid}. Alurnya:
+// ID dokumen employees/{uid}. Alurnya (dieksekusi di resolveEmployeeGoogleUser
+// setelah redirect balik, bukan di sini):
 // 1) Cek collection auth_links/{uidGoogle} -- kalau sudah pernah ditautkan
 //    sebelumnya, langsung tahu ini karyawan yang mana (empUid aslinya).
 // 2) Kalau belum pernah, cari karyawan yang field googleEmail-nya cocok
@@ -875,35 +888,37 @@ async function employeeGoogleLogin(){
   const errEl = document.getElementById('emp-login-error');
   errEl.textContent='';
   try{
+    sessionStorage.setItem(PENDING_GOOGLE_ROLE_KEY, 'employee');
     const provider = new firebase.auth.GoogleAuthProvider();
-    const result = await auth.signInWithPopup(provider);
-    const gUid = result.user.uid;
-    const gEmail = (result.user.email||'').toLowerCase();
-
-    const linkDoc = await db.collection('auth_links').doc(gUid).get();
-    if(linkDoc.exists){
-      await enterAsEmployee(linkDoc.data().empUid, errEl);
-      return;
-    }
-
-    // Belum pernah ditautkan -- cari karyawan dengan googleEmail yang cocok.
-    const q = await db.collection('employees').where('googleEmail','==', gEmail).limit(1).get();
-    if(q.empty){
-      errEl.textContent = 'Akun Google ini ('+gEmail+') belum ditautkan ke profil karyawan manapun. Minta admin mendaftarkan email ini lewat panel Kelola Karyawan.';
-      await auth.signOut();
-      return;
-    }
-    const empUid = q.docs[0].id;
-    await db.collection('auth_links').doc(gUid).set({empUid, linkedAt: firebase.firestore.FieldValue.serverTimestamp()});
-    await enterAsEmployee(empUid, errEl);
+    await auth.signInWithRedirect(provider);
+    // Halaman akan pindah ke Google lalu kembali lagi ke sini otomatis --
+    // baris di bawah ini praktis tidak akan sempat jalan.
   }catch(e){
+    sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
     console.error(e);
-    if(e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request'){
-      // dibatalkan sendiri, tidak perlu pesan error
-    } else {
-      errEl.textContent = explainFirestoreError(e, 'masuk dengan Google');
-    }
+    errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
+}
+async function resolveEmployeeGoogleUser(user, errEl){
+  const gUid = user.uid;
+  const gEmail = (user.email||'').toLowerCase();
+
+  const linkDoc = await db.collection('auth_links').doc(gUid).get();
+  if(linkDoc.exists){
+    await enterAsEmployee(linkDoc.data().empUid, errEl);
+    return;
+  }
+
+  // Belum pernah ditautkan -- cari karyawan dengan googleEmail yang cocok.
+  const q = await db.collection('employees').where('googleEmail','==', gEmail).limit(1).get();
+  if(q.empty){
+    errEl.textContent = 'Akun Google ini ('+gEmail+') belum ditautkan ke profil karyawan manapun. Minta admin mendaftarkan email ini lewat panel Kelola Karyawan.';
+    await auth.signOut();
+    return;
+  }
+  const empUid = q.docs[0].id;
+  await db.collection('auth_links').doc(gUid).set({empUid, linkedAt: firebase.firestore.FieldValue.serverTimestamp()});
+  await enterAsEmployee(empUid, errEl);
 }
 function employeeLogout(){
   if(empTeguranUnsub){ empTeguranUnsub(); empTeguranUnsub=null; }
@@ -1231,7 +1246,19 @@ async function confirmAbsen(){
 // employeeLogin()" (jangan diganggu -- auth listener ini memang berjalan
 // untuk SEMUA sesi login, termasuk karyawan, karena satu instance `auth`
 // dipakai bersama).
-let pendingAdminAuth = false;
+// Ditandai true HANYA saat admin (email/password ATAU Google) sedang
+// mencoba login -- dipakai onAuthStateChanged di bawah untuk membedakan
+// "user ini baru login lewat layar admin dan ternyata bukan admin" (harus
+// ditolak & sign-out) vs "ini karyawan yang baru login normal lewat
+// employeeLogin()" (jangan diganggu -- auth listener ini memang berjalan
+// untuk SEMUA sesi login, termasuk karyawan, karena satu instance `auth`
+// dipakai bersama).
+// Nilai awalnya dibaca dari sessionStorage (bukan selalu false) karena
+// signInWithRedirect() me-reload seluruh halaman -- variable JS biasa akan
+// ke-reset ke nilai awal setelah reload, jadi status "sedang login sebagai
+// admin" perlu "dititipkan" lewat sessionStorage supaya selamat melewati
+// reload itu (lihat juga PENDING_GOOGLE_ROLE_KEY & handleGoogleRedirectResult).
+let pendingAdminAuth = (sessionStorage.getItem(PENDING_GOOGLE_ROLE_KEY) === 'admin');
 
 async function adminLogin(){
   const email=document.getElementById('admin-email-input').value.trim();
@@ -1249,24 +1276,52 @@ async function adminLogin(){
 async function adminGoogleLogin(){
   const errEl=document.getElementById('admin-login-error');
   errEl.textContent='';
-  pendingAdminAuth = true;
   try{
+    sessionStorage.setItem(PENDING_GOOGLE_ROLE_KEY, 'admin');
+    pendingAdminAuth = true;
     const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithPopup(provider);
-    // Kalau berhasil, onAuthStateChanged di bawah yang menentukan apakah
-    // akun Google ini terdaftar sebagai admin atau tidak.
+    await auth.signInWithRedirect(provider);
+    // Halaman akan pindah ke Google lalu kembali lagi ke sini otomatis --
+    // hasilnya ditangani onAuthStateChanged di bawah setelah halaman reload.
   }catch(e){
     pendingAdminAuth = false;
-    if(e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request'){
-      // Pengguna membatalkan sendiri -- tidak perlu tampilkan error.
-    } else {
-      errEl.textContent = 'Gagal masuk dengan Google: '+(e.message||'terjadi kesalahan.');
-    }
+    sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
+    errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
 }
 function adminLogout(){
   if(adminChatUnsub){ adminChatUnsub(); adminChatUnsub=null; }
   auth.signOut(); goScreen('screen-role-select');
+}
+
+// Dipanggil sekali saat halaman terbuka (lihat bagian INIT paling bawah).
+// Kalau sebelumnya sempat memulai signInWithRedirect (untuk admin ATAU
+// karyawan) dan halaman ini adalah hasil baliknya dari Google, proses
+// hasilnya di sini. Kalau bukan (pembukaan halaman biasa), fungsi ini
+// langsung berhenti tanpa melakukan apa-apa.
+async function handleGoogleRedirectResult(){
+  const role = sessionStorage.getItem(PENDING_GOOGLE_ROLE_KEY);
+  if(!role) return;
+  sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
+  try{
+    const result = await auth.getRedirectResult();
+    if(!result || !result.user) return; // tidak ada sesi redirect yang menggantung
+    if(role === 'admin'){
+      goScreen('screen-admin-login');
+      // pendingAdminAuth sudah true dari inisialisasi di atas; sisanya
+      // otomatis ditangani auth.onAuthStateChanged di bawah begitu Firebase
+      // selesai memutakhirkan status login.
+    } else if(role === 'employee'){
+      goScreen('screen-emp-login');
+      const errEl = document.getElementById('emp-login-error');
+      await resolveEmployeeGoogleUser(result.user, errEl);
+    }
+  }catch(e){
+    console.error(e);
+    pendingAdminAuth = false;
+    const errEl = document.getElementById(role==='admin' ? 'admin-login-error' : 'emp-login-error');
+    if(errEl){ goScreen(role==='admin' ? 'screen-admin-login' : 'screen-emp-login'); errEl.textContent = explainFirestoreError(e, 'masuk dengan Google'); }
+  }
 }
 
 auth.onAuthStateChanged(async user=>{
@@ -1728,50 +1783,4 @@ function selectChatEmployee(uid){
   adminChatEmpId = uid;
   loadChatEmployeeList();
   document.getElementById('chat-input-box').disabled=false;
-  document.getElementById('chat-send-btn').disabled=false;
-  if(adminChatUnsub) adminChatUnsub();
-  const wrap=document.getElementById('chat-thread-msgs');
-  wrap.innerHTML='<div class="chat-empty">Memuat percakapan…</div>';
-  adminChatUnsub = db.collection(COL_CHAT)
-    .where('empUid','==', uid)
-    .orderBy('timestamp','asc')
-    .onSnapshot(snap=>{
-      wrap.innerHTML='';
-      if(snap.empty){ wrap.innerHTML='<div class="chat-empty">Belum ada pesan. Kirim teguran atau catatan pertama.</div>'; return; }
-      snap.forEach(doc=>{
-        const m=doc.data();
-        const b=document.createElement('div');
-        b.className='bubble '+(m.from==='admin'?'out':'in');
-        const time = m.timestamp ? new Date(m.timestamp.toDate?m.timestamp.toDate():m.timestamp).toLocaleString('id-ID') : '';
-        b.innerHTML = escapeHtml(m.text) + `<small>${time}${m.from==='admin' && m.read?' · dibaca':''}</small>`;
-        wrap.appendChild(b);
-      });
-      wrap.scrollTop = wrap.scrollHeight;
-    }, err=>{
-      showAdminError(explainFirestoreError(err, 'percakapan teguran'));
-      wrap.innerHTML = '<div class="chat-empty">Gagal memuat percakapan. Lihat pesan error di atas.</div>';
-    });
-}
-async function sendTeguran(){
-  const box=document.getElementById('chat-input-box');
-  const text=box.value.trim();
-  if(!text || !adminChatEmpId) return;
-  box.value='';
-  try{
-    await db.collection(COL_CHAT).add({
-      empUid: adminChatEmpId, from:'admin', text,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(), read:false
-    });
-  }catch(e){
-    toast(explainFirestoreError(e, 'kirim teguran'), true);
-    box.value = text; // kembalikan teks supaya tidak hilang kalau gagal kirim
-  }
-}
-
-/* =========================================================================
-   INIT
-   ========================================================================= */
-loadOfficeSettings();
-</script>
-</body>
-</html>
+  docum
