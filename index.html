@@ -735,6 +735,14 @@ function timeStrToMinutes(t){ if(!t) return null; const [h,m]=t.split(':').map(N
 function nowMinutes(){ const d=new Date(); return d.getHours()*60+d.getMinutes(); }
 function attendanceDocId(dateKey, empId){ return dateKey+'_'+empId; }
 function escapeHtml(str){ const d=document.createElement('div'); d.textContent=str; return d.innerHTML; }
+// Ubah URL di dalam pesan error jadi link yang bisa langsung di-tap --
+// pesan error index Firestore selalu menyertakan link panjang untuk
+// membuat index-nya otomatis, dan link itu percuma kalau cuma teks biasa
+// yang kepotong di layar HP dan tidak bisa disalin dengan mudah.
+function linkifyError(msg){
+  const escaped = escapeHtml(msg);
+  return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener" style="color:var(--mint);word-break:break-all;">$1</a>');
+}
 
 setInterval(()=>{
   const now=new Date();
@@ -886,10 +894,17 @@ async function renderEmployeeTeguran(){
   const wrap = document.getElementById('kiosk-view-teguran');
   wrap.innerHTML = '<div class="chat-empty">Memuat pesan…</div>';
   if(empTeguranUnsub){ empTeguranUnsub(); empTeguranUnsub=null; }
+  // PENTING: arah orderBy() di sini HARUS sama dengan query admin
+  // (selectChatEmployee, juga 'asc') -- Firestore menganggap 'timestamp' asc
+  // dan 'timestamp' desc sebagai kebutuhan composite index YANG BERBEDA,
+  // walau field & collection-nya sama persis. Dengan menyamakan arahnya,
+  // cukup 1 index (empUid + timestamp, keduanya ascending) untuk kedua sisi.
+  // limitToLast() dipakai (bukan limit()) supaya tetap dapat 50 pesan
+  // TERBARU meski urutannya ascending.
   empTeguranUnsub = db.collection(COL_CHAT)
     .where('empUid','==', currentEmployee.uid)
-    .orderBy('timestamp','desc')
-    .limit(50)
+    .orderBy('timestamp','asc')
+    .limitToLast(50)
     .onSnapshot(snap=>{
       if(snap.empty){ wrap.innerHTML='<div class="chat-empty">Belum ada catatan atau pesan dari atasan. 👍</div>'; return; }
       wrap.innerHTML='';
@@ -903,7 +918,7 @@ async function renderEmployeeTeguran(){
         if(m.from==='admin' && !m.read){ doc.ref.update({read:true}).catch(()=>{}); }
       });
     }, err=>{
-      wrap.innerHTML = '<div class="chat-empty">'+escapeHtml(explainFirestoreError(err, 'pesan dari atasan'))+'</div>';
+      wrap.innerHTML = '<div class="chat-empty" style="text-align:left;">'+linkifyError(explainFirestoreError(err, 'pesan dari atasan'))+'</div>';
     });
 }
 
@@ -929,7 +944,7 @@ function explainFirestoreError(e, context){
 function showAdminError(msg){
   const el = document.getElementById('admin-global-error');
   if(!el) return;
-  el.innerHTML = '⚠️ ' + escapeHtml(msg);
+  el.innerHTML = '⚠️ ' + linkifyError(msg);
   el.classList.remove('hidden');
 }
 function clearAdminError(){
