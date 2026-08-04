@@ -79,6 +79,19 @@ input,select,textarea{font-family:inherit;}
 .back-link:hover{color:var(--text);}
 .error-msg{color:var(--red);font-size:13px;margin-top:10px;min-height:16px;}
 
+/* divider "Atau", tombol Google, kotak kredensial demo */
+.auth-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--line);}
+.google-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;color:#1F2937;border:1px solid var(--line);border-radius:10px;padding:13px 20px;font-weight:600;font-size:14px;min-height:48px;}
+.google-btn:hover{background:#F3F4F6;}
+.demo-creds-box{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:18px;font-size:12.5px;line-height:1.9;color:var(--text);}
+.demo-creds-box .dc-title{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+#screen-emp-login .auth-divider{color:#8A7F6A;}
+#screen-emp-login .auth-divider::before,#screen-emp-login .auth-divider::after{background:#E2DDD1;}
+#screen-emp-login .google-btn{border-color:#E2DDD1;}
+#screen-emp-login .demo-creds-box{background:#FBFAF7;border-color:#E2DDD1;color:var(--navy-on-cream);}
+#screen-emp-login .demo-creds-box .dc-title{color:#8A7F6A;}
+
 /* ---------- Employee kiosk (cream theme) ---------- */
 #screen-emp-gate,#screen-emp-kiosk,#screen-emp-login{background:var(--cream);color:var(--navy-on-cream);}
 #screen-emp-login .center-shell{background:var(--cream);}
@@ -125,6 +138,7 @@ input,select,textarea{font-family:inherit;}
 .abs-status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
 .st-ontime{background:#DFF6EA;color:#1F8A5B;}
 .st-late{background:#FDECD2;color:#B4740F;}
+.st-early{background:#FDE2D2;color:#B4530F;}
 .st-pending{background:#EFEBE3;color:#8A7F6A;}
 .abs-action{background:var(--navy-on-cream);color:#fff;padding:9px 16px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap;}
 .abs-action:disabled{background:#D8D2C4;color:#8A7F6A;}
@@ -189,6 +203,7 @@ input,select,textarea{font-family:inherit;}
 .badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:100px;text-transform:uppercase;}
 .badge-ontime{background:#1A3B2E;color:var(--mint);}
 .badge-late{background:#3B2E14;color:var(--amber);}
+.badge-early{background:#3B2414;color:#F5834A;}
 .badge-absent{background:#3B1A1D;color:var(--red);}
 .badge-awol{background:#2A1030;color:#C77DFF;}
 .badge-pending{background:var(--panel-2);color:var(--muted);}
@@ -359,6 +374,20 @@ input,select,textarea{font-family:inherit;}
       <div class="field"><label>Kode Akses (PIN)</label><input id="emp-pin-input" type="password" placeholder="Minimal 6 karakter" autocomplete="off"></div>
       <button class="btn btn-primary" onclick="employeeLogin()">Masuk</button>
       <div class="error-msg" id="emp-login-error"></div>
+      <div class="auth-divider">Atau</div>
+      <button class="google-btn" onclick="employeeGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.91c1.7-1.57 2.69-3.88 2.69-6.64z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.91-2.27c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.96 10.7A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.7V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.34z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3 2.34C4.67 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        Masuk dengan Google
+      </button>
+      <div class="demo-creds-box">
+        <div class="dc-title">Kredensial Demo</div>
+        Karyawan: ID <b>AP01</b> / Kode Akses <b>A-Pras556</b>
+      </div>
       <a class="back-link" onclick="goScreen('screen-role-select')">← Kembali</a>
     </div>
   </div>
@@ -433,6 +462,20 @@ input,select,textarea{font-family:inherit;}
       <div class="field"><label>Password</label><input id="admin-pass-input" type="password" placeholder="••••••••"></div>
       <button class="btn btn-primary" onclick="adminLogin()">Masuk Dashboard</button>
       <div class="error-msg" id="admin-login-error"></div>
+      <div class="auth-divider">Atau</div>
+      <button class="google-btn" onclick="adminGoogleLogin()">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+          <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.8 2.73v2.27h2.91c1.7-1.57 2.69-3.88 2.69-6.64z"/>
+          <path fill="#34A853" d="M9 18c2.43 0 4.47-.81 5.96-2.18l-2.91-2.27c-.81.54-1.85.86-3.05.86-2.34 0-4.33-1.58-5.04-3.71H.96v2.34C2.44 15.98 5.48 18 9 18z"/>
+          <path fill="#FBBC05" d="M3.96 10.7A5.4 5.4 0 0 1 3.68 9c0-.59.1-1.17.28-1.7V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l3-2.34z"/>
+          <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 2.02.96 4.96l3 2.34C4.67 5.16 6.66 3.58 9 3.58z"/>
+        </svg>
+        Masuk dengan Google
+      </button>
+      <div class="demo-creds-box">
+        <div class="dc-title">Kredensial Demo</div>
+        Bos: <b>cvmajuterus@gmail.com</b> / <b>@BosAdijaya2026</b>
+      </div>
       <a class="back-link" onclick="goScreen('screen-role-select')">← Kembali</a>
     </div>
   </div>
@@ -485,15 +528,16 @@ input,select,textarea{font-family:inherit;}
             <div class="field"><label>Jabatan</label><input id="new-emp-position" placeholder="cth. Staff Gudang"></div>
             <div class="field"><label>Kode Akses (min. 6 karakter)</label><input id="new-emp-pin" placeholder="cth. rahasia123"></div>
             <div class="field"><label>No. WhatsApp</label><input id="new-emp-phone" placeholder="08xxxxxxxxxx"></div>
-            <div class="field" style="display:flex;align-items:flex-end;"><button class="btn btn-primary" onclick="addEmployee()">+ Tambah Karyawan</button></div>
+            <div class="field"><label>Email Google (opsional)</label><input id="new-emp-google" type="email" placeholder="untuk izinkan Masuk dengan Google"></div>
           </div>
+          <button class="btn btn-primary" onclick="addEmployee()">+ Tambah Karyawan</button>
           <div class="error-msg" id="add-emp-error"></div>
-          <p style="font-size:12px;color:var(--muted);margin-top:6px;">Setiap karyawan otomatis dibuatkan akun login asli (Firebase Authentication). Kode Akses tidak bisa diubah admin setelah dibuat — kalau karyawan lupa, cara termudah adalah nonaktifkan lalu tambahkan ulang dengan ID baru.</p>
+          <p style="font-size:12px;color:var(--muted);margin-top:6px;">Setiap karyawan otomatis dibuatkan akun login asli (Firebase Authentication). Kode Akses tidak bisa diubah admin setelah dibuat — kalau karyawan lupa, cara termudah adalah nonaktifkan lalu tambahkan ulang dengan ID baru. Isi "Email Google" kalau karyawan ini boleh login pakai tombol Masuk dengan Google juga (selain ID+PIN) — harus persis sama dengan email akun Google yang dipakai karyawan.</p>
         </div>
         <div class="panel">
           <div class="panel-title">Daftar Karyawan</div>
           <table class="data-table">
-            <thead><tr><th>ID</th><th>Nama</th><th>Jabatan</th><th>WhatsApp</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>ID</th><th>Nama</th><th>Jabatan</th><th>WhatsApp</th><th>Email Google</th><th>Status</th><th></th></tr></thead>
             <tbody id="employee-tbody"></tbody>
           </table>
         </div>
@@ -587,6 +631,20 @@ input,select,textarea{font-family:inherit;}
 <div class="toast" id="toast"></div>
 
 <!-- Modal: daftar foto verifikasi wajah untuk satu baris laporan (hari) -->
+<!-- Modal: edit Email Google karyawan (untuk izinkan Masuk dengan Google) -->
+<div id="edit-google-modal" class="modal-backdrop hidden">
+  <div class="modal-box">
+    <div class="modal-title">Email Google Karyawan</div>
+    <div class="modal-sub" id="edit-google-sub">Karyawan bisa login pakai tombol "Masuk dengan Google" kalau emailnya sama persis dengan yang diisi di sini. Kosongkan untuk menonaktifkan akses Google.</div>
+    <div class="field"><label>Email Google</label><input id="edit-google-input" type="email" placeholder="nama@gmail.com"></div>
+    <div class="error-msg" id="edit-google-error"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeEditGoogleModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveEmployeeGoogleEmail()">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <div id="verif-modal" class="modal-backdrop hidden">
   <div class="modal-box verif-modal-box">
     <div class="modal-title" id="verif-modal-title">Verifikasi Wajah</div>
@@ -779,17 +837,72 @@ async function employeeLogin(){
   if(!id||!pin){ errEl.textContent='ID dan Kode Akses wajib diisi.'; return; }
   try{
     const cred = await auth.signInWithEmailAndPassword(id.toLowerCase()+AUTH_EMAIL_DOMAIN, pin);
-    const doc = await db.collection('employees').doc(cred.user.uid).get();
-    if(!doc.exists){ errEl.textContent='Profil karyawan tidak ditemukan. Hubungi admin.'; await auth.signOut(); return; }
-    const data = doc.data();
-    if(data.active===false){ errEl.textContent='Akun Anda dinonaktifkan. Hubungi admin.'; await auth.signOut(); return; }
-    currentEmployee = {uid:cred.user.uid, id:data.empId, name:data.name, position:data.position||'-', phone:data.phone||''};
-    await loadOfficeSettings();
-    showGate();
+    await enterAsEmployee(cred.user.uid, errEl);
   }catch(e){
     console.error(e);
     if(e.code==='auth/too-many-requests'){ errEl.textContent='Terlalu banyak percobaan gagal. Coba lagi beberapa menit lagi.'; }
     else{ errEl.textContent='ID Karyawan atau Kode Akses salah.'; }
+  }
+}
+// Dipakai bersama oleh login ID+PIN dan login Google -- empUid di sini
+// SELALU uid dari akun ID+PIN asli karyawan (lihat employeeGoogleLogin
+// untuk kenapa: akun Google punya uid sendiri yang beda, jadi ditautkan
+// lewat collection auth_links, bukan dipakai langsung sebagai identitas).
+async function enterAsEmployee(empUid, errEl){
+  const doc = await db.collection('employees').doc(empUid).get();
+  if(!doc.exists){ errEl.textContent='Profil karyawan tidak ditemukan. Hubungi admin.'; await auth.signOut(); return false; }
+  const data = doc.data();
+  if(data.active===false){ errEl.textContent='Akun Anda dinonaktifkan. Hubungi admin.'; await auth.signOut(); return false; }
+  currentEmployee = {uid:empUid, id:data.empId, name:data.name, position:data.position||'-', phone:data.phone||''};
+  await loadOfficeSettings();
+  showGate();
+  return true;
+}
+// Login karyawan lewat akun Google. Akun Google punya uid Firebase Auth
+// SENDIRI (beda dari akun ID+PIN), jadi tidak bisa langsung dipakai sebagai
+// ID dokumen employees/{uid}. Alurnya:
+// 1) Cek collection auth_links/{uidGoogle} -- kalau sudah pernah ditautkan
+//    sebelumnya, langsung tahu ini karyawan yang mana (empUid aslinya).
+// 2) Kalau belum pernah, cari karyawan yang field googleEmail-nya cocok
+//    persis dengan email Google yang baru login (ini diisi admin lewat
+//    tombol "🔗 Google" di tabel karyawan). Kalau ketemu, buat dokumen
+//    auth_links-nya (diizinkan oleh Firestore Rules HANYA kalau email-nya
+//    memang cocok -- lihat firestore.rules), supaya login berikutnya lebih
+//    cepat (langsung lompat ke langkah 1).
+// 3) Kalau tidak ketemu sama sekali, akun Google ini belum didaftarkan
+//    admin -- tolak dengan pesan jelas.
+async function employeeGoogleLogin(){
+  const errEl = document.getElementById('emp-login-error');
+  errEl.textContent='';
+  try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    const result = await auth.signInWithPopup(provider);
+    const gUid = result.user.uid;
+    const gEmail = (result.user.email||'').toLowerCase();
+
+    const linkDoc = await db.collection('auth_links').doc(gUid).get();
+    if(linkDoc.exists){
+      await enterAsEmployee(linkDoc.data().empUid, errEl);
+      return;
+    }
+
+    // Belum pernah ditautkan -- cari karyawan dengan googleEmail yang cocok.
+    const q = await db.collection('employees').where('googleEmail','==', gEmail).limit(1).get();
+    if(q.empty){
+      errEl.textContent = 'Akun Google ini ('+gEmail+') belum ditautkan ke profil karyawan manapun. Minta admin mendaftarkan email ini lewat panel Kelola Karyawan.';
+      await auth.signOut();
+      return;
+    }
+    const empUid = q.docs[0].id;
+    await db.collection('auth_links').doc(gUid).set({empUid, linkedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    await enterAsEmployee(empUid, errEl);
+  }catch(e){
+    console.error(e);
+    if(e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request'){
+      // dibatalkan sendiri, tidak perlu pesan error
+    } else {
+      errEl.textContent = explainFirestoreError(e, 'masuk dengan Google');
+    }
   }
 }
 function employeeLogout(){
@@ -832,12 +945,35 @@ async function getTodayAttendanceDoc(){
 function computeStatus(stage, timeIso){
   const t = new Date(timeIso);
   const mins = t.getHours()*60+t.getMinutes();
+  const tol = officeSettings.toleransiTelat || 0;
   if(stage==='pagi'){
-    const batas = timeStrToMinutes(officeSettings.jamPagi)+ (officeSettings.toleransiTelat||0);
-    return mins>batas ? 'late' : 'ontime';
+    const batas = timeStrToMinutes(officeSettings.jamPagi) + tol;
+    return (batas!=null && mins>batas) ? 'late' : 'ontime';
+  }
+  if(stage==='istirahatMasuk'){
+    // Kembali dari istirahat -- telat kalau balik setelah jam istirahat
+    // selesai (+ toleransi yang sama dengan toleransi telat pagi).
+    const batas = timeStrToMinutes(officeSettings.jamIstirahatSelesai) + tol;
+    return (batas!=null && mins>batas) ? 'late' : 'ontime';
+  }
+  if(stage==='pulang'){
+    // Untuk jam pulang, yang jadi masalah biasanya pulang SEBELUM
+    // waktunya, bukan "terlambat pulang" (itu wajar/lembur).
+    const batas = timeStrToMinutes(officeSettings.jamPulang) - tol;
+    return (batas!=null && mins<batas) ? 'early' : 'ontime';
   }
   return 'ontime';
 }
+// Label & kelas CSS status absen, dipakai di semua tempat (kiosk karyawan,
+// tabel monitoring, laporan, modal verifikasi foto) supaya konsisten dan
+// gampang ditambah status baru di satu tempat saja.
+function attStatusLabel(status, lateMinutes){
+  if(status==='late') return 'Terlambat';
+  if(status==='early') return 'Pulang Cepat';
+  return 'Tepat Waktu';
+}
+function attStatusClass(status){ return status==='late'?'st-late':status==='early'?'st-early':'st-ontime'; }
+function attBadgeClass(status){ return status==='late'?'badge-late':status==='early'?'badge-early':'badge-ontime'; }
 
 async function renderKioskAbsen(){
   const today = await getTodayAttendanceDoc();
@@ -859,8 +995,8 @@ async function renderKioskAbsen(){
     card.className='abs-card'+(s.optional?' opt':'');
     let statusHtml, actionHtml;
     if(rec){
-      const st = rec.status==='late' ? 'st-late':'st-ontime';
-      const stLabel = rec.status==='late' ? 'Terlambat':'Tepat Waktu';
+      const st = attStatusClass(rec.status);
+      const stLabel = attStatusLabel(rec.status);
       statusHtml = `<span class="abs-status ${st}">${stLabel}</span>`;
       actionHtml = `<button class="abs-action" disabled>${new Date(rec.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</button>`;
     } else {
@@ -1088,15 +1224,44 @@ async function confirmAbsen(){
 /* =========================================================================
    ADMIN: LOGIN / LOGOUT
    ========================================================================= */
+// Ditandai true HANYA saat admin (email/password ATAU Google) sedang
+// mencoba login -- dipakai onAuthStateChanged di bawah untuk membedakan
+// "user ini baru login lewat layar admin dan ternyata bukan admin" (harus
+// ditolak & sign-out) vs "ini karyawan yang baru login normal lewat
+// employeeLogin()" (jangan diganggu -- auth listener ini memang berjalan
+// untuk SEMUA sesi login, termasuk karyawan, karena satu instance `auth`
+// dipakai bersama).
+let pendingAdminAuth = false;
+
 async function adminLogin(){
   const email=document.getElementById('admin-email-input').value.trim();
   const pass=document.getElementById('admin-pass-input').value;
   const errEl=document.getElementById('admin-login-error');
   errEl.textContent='';
+  pendingAdminAuth = true;
   try{
     await auth.signInWithEmailAndPassword(email, pass);
   }catch(e){
+    pendingAdminAuth = false;
     errEl.textContent='Login gagal: email atau password salah.';
+  }
+}
+async function adminGoogleLogin(){
+  const errEl=document.getElementById('admin-login-error');
+  errEl.textContent='';
+  pendingAdminAuth = true;
+  try{
+    const provider = new firebase.auth.GoogleAuthProvider();
+    await auth.signInWithPopup(provider);
+    // Kalau berhasil, onAuthStateChanged di bawah yang menentukan apakah
+    // akun Google ini terdaftar sebagai admin atau tidak.
+  }catch(e){
+    pendingAdminAuth = false;
+    if(e.code==='auth/popup-closed-by-user' || e.code==='auth/cancelled-popup-request'){
+      // Pengguna membatalkan sendiri -- tidak perlu tampilkan error.
+    } else {
+      errEl.textContent = 'Gagal masuk dengan Google: '+(e.message||'terjadi kesalahan.');
+    }
   }
 }
 function adminLogout(){
@@ -1115,17 +1280,29 @@ auth.onAuthStateChanged(async user=>{
     // Kalau yang login memang admin tapi cek ini gagal karena rules,
     // tampilkan errornya di layar login admin -- jangan diam saja,
     // supaya tidak terlihat seperti "nyangkut" tanpa sebab.
-    if(document.getElementById('screen-admin-login') && !document.getElementById('screen-admin-login').classList.contains('hidden')){
+    if(pendingAdminAuth && document.getElementById('screen-admin-login') && !document.getElementById('screen-admin-login').classList.contains('hidden')){
       document.getElementById('admin-login-error').textContent = explainFirestoreError(e, 'pengecekan status admin');
     }
+    pendingAdminAuth = false;
     return;
   }
   if(adminDoc && adminDoc.exists){
+    pendingAdminAuth = false;
     document.getElementById('admin-email-label').textContent = user.email;
     await loadOfficeSettings();
     goScreen('screen-admin-dashboard');
     await Promise.all([refreshMonitoring(), loadEmployeesAdmin(), loadOfficeFormValues()]);
+  } else if(pendingAdminAuth){
+    // Berhasil login (misalnya lewat Google) tapi akunnya belum didaftarkan
+    // sebagai admin di collection 'admins' -- tolak dengan jelas, jangan
+    // biarkan layar diam tanpa penjelasan.
+    pendingAdminAuth = false;
+    document.getElementById('admin-login-error').textContent =
+      'Akun ini belum terdaftar sebagai admin/bos. Hubungi pengelola sistem untuk didaftarkan (Firestore > admins > tambah dokumen dengan ID = UID akun ini).';
+    await auth.signOut();
   }
+  // Kalau bukan admin DAN pendingAdminAuth juga false, berarti ini memang
+  // sesi karyawan biasa -- dibiarkan, employeeLogin() yang mengurusnya.
 });
 
 function switchAdminTab(tab){
@@ -1170,8 +1347,8 @@ async function refreshMonitoring(){
     const rec = attMap[emp.uid] || {};
     let status, badgeClass;
     if(rec.pagi){
-      status = rec.pagi.status==='late' ? 'Terlambat':'Tepat Waktu';
-      badgeClass = rec.pagi.status==='late' ? 'badge-late':'badge-ontime';
+      status = attStatusLabel(rec.pagi.status);
+      badgeClass = attBadgeClass(rec.pagi.status);
       if(rec.pagi.status==='late') late++; else ontime++;
     } else if(nowM > mangkirBatas){
       status='Mangkir'; badgeClass='badge-awol'; awol++;
@@ -1219,13 +1396,50 @@ async function loadEmployeesAdmin(){
       <td data-label="Nama">${emp.name}</td>
       <td data-label="Jabatan">${emp.position||'-'}</td>
       <td data-label="WhatsApp">${emp.phone||'-'}</td>
+      <td data-label="Email Google">${emp.googleEmail?escapeHtml(emp.googleEmail):'<span style="color:var(--muted);">belum diatur</span>'}</td>
       <td data-label="Status"><span class="badge ${emp.active===false?'badge-absent':'badge-ontime'}">${emp.active===false?'Nonaktif':'Aktif'}</span></td>
       <td class="row-flex full-width no-label">
+        <button class="icon-btn" onclick="openEditGoogleModal('${emp.uid}')">🔗 Google</button>
         <button class="icon-btn" onclick="toggleEmployeeActive('${emp.uid}', ${emp.active===false})">${emp.active===false?'Aktifkan':'Nonaktifkan'}</button>
         <button class="icon-btn" onclick="deleteEmployee('${emp.uid}','${emp.empId}')" style="color:var(--red);">Hapus</button>
       </td>`;
     tbody.appendChild(tr);
   });
+}
+let editGoogleEmpUid = null;
+function openEditGoogleModal(uid){
+  const emp = allEmployees.find(e=>e.uid===uid);
+  if(!emp) return;
+  editGoogleEmpUid = uid;
+  document.getElementById('edit-google-input').value = emp.googleEmail || '';
+  document.getElementById('edit-google-error').textContent = '';
+  document.getElementById('edit-google-sub').textContent = 'Untuk '+emp.name+'. Karyawan bisa login pakai tombol "Masuk dengan Google" kalau emailnya sama persis dengan yang diisi di sini. Kosongkan untuk menonaktifkan akses Google.';
+  document.getElementById('edit-google-modal').classList.remove('hidden');
+}
+function closeEditGoogleModal(){
+  document.getElementById('edit-google-modal').classList.add('hidden');
+  editGoogleEmpUid = null;
+}
+async function saveEmployeeGoogleEmail(){
+  const errEl = document.getElementById('edit-google-error');
+  errEl.textContent='';
+  const email = document.getElementById('edit-google-input').value.trim().toLowerCase();
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    errEl.textContent='Format email tidak valid.'; return;
+  }
+  // Cek dulu supaya 1 email Google tidak dipakai dobel oleh 2 karyawan
+  // berbeda (kalau sampai dobel, nanti keduanya akan tertaut ke profil
+  // yang sama secara tidak sengaja).
+  if(email){
+    const dup = allEmployees.find(e=>e.uid!==editGoogleEmpUid && (e.googleEmail||'').toLowerCase()===email);
+    if(dup){ errEl.textContent='Email ini sudah dipakai karyawan lain ('+dup.name+').'; return; }
+  }
+  try{
+    await db.collection('employees').doc(editGoogleEmpUid).update({googleEmail: email || null});
+    toast(email ? 'Email Google tersimpan. Karyawan bisa login pakai Google sekarang.' : 'Akses Google untuk karyawan ini dinonaktifkan.');
+    closeEditGoogleModal();
+    await loadEmployeesAdmin();
+  }catch(e){ errEl.textContent = explainFirestoreError(e, 'simpan email Google'); }
 }
 async function addEmployee(){
   const id=document.getElementById('new-emp-id').value.trim();
@@ -1233,9 +1447,12 @@ async function addEmployee(){
   const position=document.getElementById('new-emp-position').value.trim();
   const pin=document.getElementById('new-emp-pin').value.trim();
   const phone=document.getElementById('new-emp-phone').value.trim();
+  const googleEmail=document.getElementById('new-emp-google').value.trim().toLowerCase();
   const errEl=document.getElementById('add-emp-error'); errEl.textContent='';
   if(!id||!name||!pin){ errEl.textContent='ID, Nama, dan Kode Akses wajib diisi.'; return; }
   if(pin.length<6){ errEl.textContent='Kode Akses minimal 6 karakter (syarat Firebase Auth).'; return; }
+  if(googleEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(googleEmail)){ errEl.textContent='Format Email Google tidak valid.'; return; }
+  if(googleEmail && allEmployees.some(e=>(e.googleEmail||'').toLowerCase()===googleEmail)){ errEl.textContent='Email Google ini sudah dipakai karyawan lain.'; return; }
   try{
     // Pakai instance Firebase kedua supaya membuat akun karyawan baru
     // tidak ikut men-switch sesi login admin yang sedang aktif.
@@ -1245,9 +1462,9 @@ async function addEmployee(){
     const cred = await secondaryAuth.createUserWithEmailAndPassword(id.toLowerCase()+AUTH_EMAIL_DOMAIN, pin);
     await secondaryAuth.signOut();
     await db.collection('employees').doc(cred.user.uid).set({
-      empId:id, name, position, phone, active:true, createdAt:new Date().toISOString()
+      empId:id, name, position, phone, googleEmail: googleEmail || null, active:true, createdAt:new Date().toISOString()
     });
-    ['new-emp-id','new-emp-name','new-emp-position','new-emp-pin','new-emp-phone'].forEach(i=>document.getElementById(i).value='');
+    ['new-emp-id','new-emp-name','new-emp-position','new-emp-pin','new-emp-phone','new-emp-google'].forEach(i=>document.getElementById(i).value='');
     toast('Karyawan '+name+' berhasil ditambahkan.');
     await loadEmployeesAdmin();
   }catch(e){
@@ -1384,7 +1601,7 @@ async function generateReport(){
   if(rows.length===0){ tbody.innerHTML='<tr><td colspan="8" style="color:var(--muted);">Tidak ada data untuk periode ini.</td></tr>'; return; }
   rows.forEach((r,idx)=>{
     let status, badgeClass;
-    if(r.pagi){ status = r.pagi.status==='late'?'Terlambat':'Tepat Waktu'; badgeClass = r.pagi.status==='late'?'badge-late':'badge-ontime'; }
+    if(r.pagi){ status = attStatusLabel(r.pagi.status); badgeClass = attBadgeClass(r.pagi.status); }
     else { status='Tidak Hadir'; badgeClass='badge-absent'; }
     const photoCount = STAGES.filter(s=> r[s.key] && r[s.key].photo).length;
     const printThumbs = photoCount>0
@@ -1432,7 +1649,7 @@ function openVerifModal(idx){
     if(!rec) return;
     any=true;
     const time = rec.time ? new Date(rec.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-    const statusTxt = rec.status==='late' ? 'Terlambat' : 'Tepat Waktu';
+    const statusTxt = attStatusLabel(rec.status);
     const distTxt = rec.location && rec.location.distance!=null ? ' · ±'+rec.location.distance+'m dari kantor' : '';
     const card = document.createElement('div');
     card.className='verif-card';
@@ -1464,7 +1681,7 @@ function printVerificationRow(){
   const cards = STAGES.filter(s=>r[s.key]).map(s=>{
     const rec = r[s.key];
     const time = rec.time ? new Date(rec.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-    const statusTxt = rec.status==='late' ? 'Terlambat' : 'Tepat Waktu';
+    const statusTxt = attStatusLabel(rec.status);
     return `<div class="pv-card">
       ${rec.photo ? `<img src="${rec.photo}">` : `<div class="pv-empty">Tanpa foto</div>`}
       <div class="pv-cap">${s.label}<br>${time} · ${statusTxt}</div>
