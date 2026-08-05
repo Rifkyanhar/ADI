@@ -869,6 +869,18 @@ async function enterAsEmployee(empUid, errEl){
 // baca lagi begitu halaman terbuka kembali (lihat handleGoogleRedirectResult
 // di bagian ADMIN LOGIN & bagian INIT paling bawah file).
 const PENDING_GOOGLE_ROLE_KEY = 'absensiDigitalPendingGoogleRole';
+// Pembungkus aman untuk sessionStorage -- di sebagian browser/pengaturan HP
+// (mode privasi ketat, penyimpanan situs diblokir, dll), MENGAKSES
+// sessionStorage sekalipun (bukan cuma dipakai) bisa melempar error. Kalau
+// error itu sampai tidak tertangani di kode level atas (bukan di dalam
+// function), SELURUH sisa skrip di bawahnya berhenti dieksekusi -- efeknya
+// semua tombol di halaman jadi tidak merespons sama sekali. Pembungkus ini
+// memastikan itu tidak pernah terjadi: kalau session Storage bermasalah,
+// aplikasi tetap jalan normal, cuma fitur "lanjut otomatis setelah redirect
+// Google" yang tidak aktif.
+function safeSessionGet(key){ try{ return sessionStorage.getItem(key); }catch(e){ return null; } }
+function safeSessionSet(key, val){ try{ sessionStorage.setItem(key, val); }catch(e){} }
+function safeSessionRemove(key){ try{ sessionStorage.removeItem(key); }catch(e){} }
 
 // Login karyawan lewat akun Google. Akun Google punya uid Firebase Auth
 // SENDIRI (beda dari akun ID+PIN), jadi tidak bisa langsung dipakai sebagai
@@ -888,13 +900,13 @@ async function employeeGoogleLogin(){
   const errEl = document.getElementById('emp-login-error');
   errEl.textContent='';
   try{
-    sessionStorage.setItem(PENDING_GOOGLE_ROLE_KEY, 'employee');
+    safeSessionSet(PENDING_GOOGLE_ROLE_KEY, 'employee');
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithRedirect(provider);
     // Halaman akan pindah ke Google lalu kembali lagi ke sini otomatis --
     // baris di bawah ini praktis tidak akan sempat jalan.
   }catch(e){
-    sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
+    safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     console.error(e);
     errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
@@ -1258,7 +1270,7 @@ async function confirmAbsen(){
 // ke-reset ke nilai awal setelah reload, jadi status "sedang login sebagai
 // admin" perlu "dititipkan" lewat sessionStorage supaya selamat melewati
 // reload itu (lihat juga PENDING_GOOGLE_ROLE_KEY & handleGoogleRedirectResult).
-let pendingAdminAuth = (sessionStorage.getItem(PENDING_GOOGLE_ROLE_KEY) === 'admin');
+let pendingAdminAuth = (safeSessionGet(PENDING_GOOGLE_ROLE_KEY) === 'admin');
 
 async function adminLogin(){
   const email=document.getElementById('admin-email-input').value.trim();
@@ -1277,7 +1289,7 @@ async function adminGoogleLogin(){
   const errEl=document.getElementById('admin-login-error');
   errEl.textContent='';
   try{
-    sessionStorage.setItem(PENDING_GOOGLE_ROLE_KEY, 'admin');
+    safeSessionSet(PENDING_GOOGLE_ROLE_KEY, 'admin');
     pendingAdminAuth = true;
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithRedirect(provider);
@@ -1285,7 +1297,7 @@ async function adminGoogleLogin(){
     // hasilnya ditangani onAuthStateChanged di bawah setelah halaman reload.
   }catch(e){
     pendingAdminAuth = false;
-    sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
+    safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
 }
@@ -1300,9 +1312,9 @@ function adminLogout(){
 // hasilnya di sini. Kalau bukan (pembukaan halaman biasa), fungsi ini
 // langsung berhenti tanpa melakukan apa-apa.
 async function handleGoogleRedirectResult(){
-  const role = sessionStorage.getItem(PENDING_GOOGLE_ROLE_KEY);
+  const role = safeSessionGet(PENDING_GOOGLE_ROLE_KEY);
   if(!role) return;
-  sessionStorage.removeItem(PENDING_GOOGLE_ROLE_KEY);
+  safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
   try{
     const result = await auth.getRedirectResult();
     if(!result || !result.user) return; // tidak ada sesi redirect yang menggantung
@@ -1762,25 +1774,4 @@ window.addEventListener('afterprint', ()=>{
    (messages/{uid}/chat/{msgId}) butuh security rule TERPISAH untuk
    subcollection-nya -- kalau lupa ditulis, onSnapshot gagal diam-diam dan
    daftar/pesan terlihat kosong tanpa sebab. Sekarang errornya juga
-   ditampilkan lewat showAdminError supaya tidak "hilang" tanpa jejak lagi.
-   ========================================================================= */
-async function loadChatEmployeeList(){
-  const list=document.getElementById('chat-emp-list');
-  list.innerHTML='';
-  if(allEmployees.length===0){
-    list.innerHTML='<div class="chat-empty">Belum ada data karyawan. Buka tab Karyawan dulu.</div>';
-    return;
-  }
-  allEmployees.forEach(emp=>{
-    const el=document.createElement('div');
-    el.className='chat-emp-item'+(emp.uid===adminChatEmpId?' active':'');
-    el.textContent = emp.name+' ('+emp.empId+')';
-    el.onclick=()=>selectChatEmployee(emp.uid);
-    list.appendChild(el);
-  });
-}
-function selectChatEmployee(uid){
-  adminChatEmpId = uid;
-  loadChatEmployeeList();
-  document.getElementById('chat-input-box').disabled=false;
-  docum
+   ditampi
