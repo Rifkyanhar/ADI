@@ -839,17 +839,25 @@ setInterval(()=>{
 /* =========================================================================
    OFFICE SETTINGS (load once, used everywhere)
    ========================================================================= */
+const DEFAULT_OFFICE_SETTINGS = {name:'Instansi Anda', lat:null, lng:null, radius:100,
+  jamPagi:'08:00', toleransiTelat:15, jamIstirahatMulai:'12:00', jamIstirahatSelesai:'13:00',
+  jamPulang:'17:00', jamMangkir:'10:00'};
 async function loadOfficeSettings(){
   try{
     const doc = await db.collection('settings').doc('office').get();
-    if(doc.exists){ officeSettings = doc.data(); }
-    else{
-      officeSettings = {name:'Instansi Anda', lat:null, lng:null, radius:100,
-        jamPagi:'08:00', toleransiTelat:15, jamIstirahatMulai:'12:00', jamIstirahatSelesai:'13:00',
-        jamPulang:'17:00', jamMangkir:'10:00'};
-    }
-    document.getElementById('instansi-name-label').textContent = 'Sistem absensi '+(officeSettings.name||'instansi')+'. Pilih akses untuk melanjutkan.';
-  }catch(e){ console.error('Gagal memuat pengaturan kantor', e); }
+    officeSettings = doc.exists ? doc.data() : {...DEFAULT_OFFICE_SETTINGS};
+    const label = document.getElementById('instansi-name-label');
+    if(label) label.textContent = 'Sistem absensi '+(officeSettings.name||'instansi')+'. Pilih akses untuk melanjutkan.';
+  }catch(e){
+    console.error('Gagal memuat pengaturan kantor', e);
+    // PENTING: kalau gagal (mis. sinyal lemah/putus di tengah), JANGAN
+    // biarkan officeSettings tetap null -- itu bikin computeStatus() crash
+    // saat karyawan absen ("Cannot read properties of null"). Pakai nilai
+    // default sementara supaya aplikasi tetap bisa dipakai; nanti kalau
+    // koneksi pulih, pemanggilan loadOfficeSettings() berikutnya (mis. saat
+    // login lagi) akan menimpanya dengan data asli.
+    if(!officeSettings) officeSettings = {...DEFAULT_OFFICE_SETTINGS};
+  }
 }
 
 /* =========================================================================
@@ -927,12 +935,14 @@ async function employeeGoogleLogin(){
   errEl.textContent='';
   try{
     safeSessionSet(PENDING_GOOGLE_ROLE_KEY, 'employee');
+    pendingGoogleRole = 'employee';
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithRedirect(provider);
     // Halaman akan pindah ke Google lalu kembali lagi ke sini otomatis --
     // baris di bawah ini praktis tidak akan sempat jalan.
   }catch(e){
     safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
+    pendingGoogleRole = null;
     console.error(e);
     errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
@@ -998,21 +1008,26 @@ async function getTodayAttendanceDoc(){
 function computeStatus(stage, timeIso){
   const t = new Date(timeIso);
   const mins = t.getHours()*60+t.getMinutes();
-  const tol = officeSettings.toleransiTelat || 0;
+  // Pengaman ganda: kalau entah bagaimana officeSettings masih null/kosong
+  // di titik ini (harusnya sudah dicegah oleh loadOfficeSettings()), pakai
+  // default supaya TIDAK PERNAH crash saat karyawan sedang absen -- lebih
+  // baik status dihitung dengan asumsi wajar daripada absennya gagal total.
+  const settings = officeSettings || DEFAULT_OFFICE_SETTINGS;
+  const tol = settings.toleransiTelat || 0;
   if(stage==='pagi'){
-    const batas = timeStrToMinutes(officeSettings.jamPagi) + tol;
+    const batas = timeStrToMinutes(settings.jamPagi) + tol;
     return (batas!=null && mins>batas) ? 'late' : 'ontime';
   }
   if(stage==='istirahatMasuk'){
     // Kembali dari istirahat -- telat kalau balik setelah jam istirahat
     // selesai (+ toleransi yang sama dengan toleransi telat pagi).
-    const batas = timeStrToMinutes(officeSettings.jamIstirahatSelesai) + tol;
+    const batas = timeStrToMinutes(settings.jamIstirahatSelesai) + tol;
     return (batas!=null && mins>batas) ? 'late' : 'ontime';
   }
   if(stage==='pulang'){
     // Untuk jam pulang, yang jadi masalah biasanya pulang SEBELUM
     // waktunya, bukan "terlambat pulang" (itu wajar/lembur).
-    const batas = timeStrToMinutes(officeSettings.jamPulang) - tol;
+    const batas = timeStrToMinutes(settings.jamPulang) - tol;
     return (batas!=null && mins<batas) ? 'early' : 'ontime';
   }
   return 'ontime';
@@ -1284,19 +1299,23 @@ async function confirmAbsen(){
 // employeeLogin()" (jangan diganggu -- auth listener ini memang berjalan
 // untuk SEMUA sesi login, termasuk karyawan, karena satu instance `auth`
 // dipakai bersama).
-// Ditandai true HANYA saat admin (email/password ATAU Google) sedang
-// mencoba login -- dipakai onAuthStateChanged di bawah untuk membedakan
-// "user ini baru login lewat layar admin dan ternyata bukan admin" (harus
-// ditolak & sign-out) vs "ini karyawan yang baru login normal lewat
-// employeeLogin()" (jangan diganggu -- auth listener ini memang berjalan
-// untuk SEMUA sesi login, termasuk karyawan, karena satu instance `auth`
-// dipakai bersama).
 // Nilai awalnya dibaca dari sessionStorage (bukan selalu false) karena
 // signInWithRedirect() me-reload seluruh halaman -- variable JS biasa akan
 // ke-reset ke nilai awal setelah reload, jadi status "sedang login sebagai
-// admin" perlu "dititipkan" lewat sessionStorage supaya selamat melewati
-// reload itu (lihat juga PENDING_GOOGLE_ROLE_KEY & handleGoogleRedirectResult).
-let pendingAdminAuth = (safeSessionGet(PENDING_GOOGLE_ROLE_KEY) === 'admin');
+// siapa" perlu "dititipkan" lewat sessionStorage supaya selamat melewati
+// reload itu.
+//
+// PENTING soal desain di bawah ini: SUMBER KEBENARAN untuk "login berhasil"
+// adalah auth.onAuthStateChanged (event resmi dari Firebase saat status
+// login berubah), BUKAN nilai balik getRedirectResult(). Percobaan
+// sebelumnya sempat gagal karena getRedirectResult() kadang mengembalikan
+// user kosong padahal login-nya sebenarnya berhasil (Firebase sudah
+// memprosesnya duluan sebelum sempat kita baca) -- akibatnya pengguna
+// "dilempar balik ke tampilan awal" walau login-nya sukses. getRedirectResult()
+// sekarang HANYA dipakai untuk menangkap PESAN ERROR kalau proses redirect-nya
+// sendiri gagal (mis. dibatalkan, ditolak Google, dll).
+let pendingGoogleRole = safeSessionGet(PENDING_GOOGLE_ROLE_KEY);
+let pendingAdminAuth = (pendingGoogleRole === 'admin');
 
 async function adminLogin(){
   const email=document.getElementById('admin-email-input').value.trim();
@@ -1316,13 +1335,15 @@ async function adminGoogleLogin(){
   errEl.textContent='';
   try{
     safeSessionSet(PENDING_GOOGLE_ROLE_KEY, 'admin');
+    pendingGoogleRole = 'admin';
     pendingAdminAuth = true;
     const provider = new firebase.auth.GoogleAuthProvider();
     await auth.signInWithRedirect(provider);
     // Halaman akan pindah ke Google lalu kembali lagi ke sini otomatis --
-    // hasilnya ditangani onAuthStateChanged di bawah setelah halaman reload.
+    // hasilnya ditangani auth.onAuthStateChanged di bawah setelah reload.
   }catch(e){
     pendingAdminAuth = false;
+    pendingGoogleRole = null;
     safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     errEl.textContent = 'Gagal memulai proses masuk dengan Google: '+(e.message||'terjadi kesalahan.');
   }
@@ -1333,37 +1354,48 @@ function adminLogout(){
 }
 
 // Dipanggil sekali saat halaman terbuka (lihat bagian INIT paling bawah).
-// Kalau sebelumnya sempat memulai signInWithRedirect (untuk admin ATAU
-// karyawan) dan halaman ini adalah hasil baliknya dari Google, proses
-// hasilnya di sini. Kalau bukan (pembukaan halaman biasa), fungsi ini
-// langsung berhenti tanpa melakukan apa-apa.
+// Tugasnya CUMA menangkap error kalau proses redirect Google itu sendiri
+// gagal (mis. dibatalkan pengguna, jaringan putus di tengah, dll). Kalau
+// berhasil, TIDAK melakukan apa-apa di sini -- auth.onAuthStateChanged di
+// bawah yang mengambil alih proses login selanjutnya begitu Firebase resmi
+// memberi tahu statusnya berubah.
 async function handleGoogleRedirectResult(){
-  const role = safeSessionGet(PENDING_GOOGLE_ROLE_KEY);
+  const role = pendingGoogleRole;
   if(!role) return;
-  safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
   try{
-    const result = await auth.getRedirectResult();
-    if(!result || !result.user) return; // tidak ada sesi redirect yang menggantung
-    if(role === 'admin'){
-      goScreen('screen-admin-login');
-      // pendingAdminAuth sudah true dari inisialisasi di atas; sisanya
-      // otomatis ditangani auth.onAuthStateChanged di bawah begitu Firebase
-      // selesai memutakhirkan status login.
-    } else if(role === 'employee'){
-      goScreen('screen-emp-login');
-      const errEl = document.getElementById('emp-login-error');
-      await resolveEmployeeGoogleUser(result.user, errEl);
-    }
+    await auth.getRedirectResult();
   }catch(e){
     console.error(e);
     pendingAdminAuth = false;
+    pendingGoogleRole = null;
+    safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     const errEl = document.getElementById(role==='admin' ? 'admin-login-error' : 'emp-login-error');
-    if(errEl){ goScreen(role==='admin' ? 'screen-admin-login' : 'screen-emp-login'); errEl.textContent = explainFirestoreError(e, 'masuk dengan Google'); }
+    goScreen(role==='admin' ? 'screen-admin-login' : 'screen-emp-login');
+    if(errEl) errEl.textContent = explainFirestoreError(e, 'masuk dengan Google');
   }
 }
 
 auth.onAuthStateChanged(async user=>{
   if(!user) return;
+
+  // Kalau ini hasil redirect Google untuk KARYAWAN yang belum diproses,
+  // tangani di sini dulu -- baru berhenti, jangan ikut masuk ke pengecekan
+  // admin di bawah.
+  if(pendingGoogleRole === 'employee' && !currentEmployee){
+    pendingGoogleRole = null;
+    safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
+    goScreen('screen-emp-login');
+    const errEl = document.getElementById('emp-login-error');
+    await resolveEmployeeGoogleUser(user, errEl);
+    return;
+  }
+  if(pendingGoogleRole === 'employee'){
+    // currentEmployee sudah terisi (mis. dari employeeLogin() ID+PIN biasa
+    // yang kebetulan jalan berbarengan) -- bersihkan flag sisa saja.
+    pendingGoogleRole = null;
+    safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
+  }
+
   // Bisa jadi ini karyawan yang baru login (bukan admin) -- cek dulu
   // apakah uid ini terdaftar sebagai admin sebelum redirect ke dashboard.
   let adminDoc;
@@ -1376,11 +1408,11 @@ auth.onAuthStateChanged(async user=>{
     if(pendingAdminAuth && document.getElementById('screen-admin-login') && !document.getElementById('screen-admin-login').classList.contains('hidden')){
       document.getElementById('admin-login-error').textContent = explainFirestoreError(e, 'pengecekan status admin');
     }
-    pendingAdminAuth = false;
+    pendingAdminAuth = false; pendingGoogleRole = null; safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     return;
   }
   if(adminDoc && adminDoc.exists){
-    pendingAdminAuth = false;
+    pendingAdminAuth = false; pendingGoogleRole = null; safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     document.getElementById('admin-email-label').textContent = user.email;
     await loadOfficeSettings();
     goScreen('screen-admin-dashboard');
@@ -1389,7 +1421,7 @@ auth.onAuthStateChanged(async user=>{
     // Berhasil login (misalnya lewat Google) tapi akunnya belum didaftarkan
     // sebagai admin di collection 'admins' -- tolak dengan jelas, jangan
     // biarkan layar diam tanpa penjelasan.
-    pendingAdminAuth = false;
+    pendingAdminAuth = false; pendingGoogleRole = null; safeSessionRemove(PENDING_GOOGLE_ROLE_KEY);
     document.getElementById('admin-login-error').textContent =
       'Akun ini belum terdaftar sebagai admin/bos. Hubungi pengelola sistem untuk didaftarkan (Firestore > admins > tambah dokumen dengan ID = UID akun ini).';
     await auth.signOut();
@@ -1737,135 +1769,4 @@ function openVerifModal(idx){
   const grid = document.getElementById('verif-modal-grid');
   grid.innerHTML='';
   let any=false;
-  STAGES.forEach(s=>{
-    const rec = r[s.key];
-    if(!rec) return;
-    any=true;
-    const time = rec.time ? new Date(rec.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-    const statusTxt = attStatusLabel(rec.status);
-    const distTxt = rec.location && rec.location.distance!=null ? ' · ±'+rec.location.distance+'m dari kantor' : '';
-    const card = document.createElement('div');
-    card.className='verif-card';
-    card.innerHTML = rec.photo
-      ? `<img src="${rec.photo}" alt="${s.label}" onclick="openLightbox('${rec.photo}', '${escapeHtml(s.label+' · '+time)}')">`
-      : `<div class="empty-photo">Tanpa foto</div>`;
-    card.innerHTML += `<div class="vc-label">${s.label}</div><div class="vc-sub">${time} · ${statusTxt}${distTxt}</div>`;
-    grid.appendChild(card);
-  });
-  if(!any){ grid.innerHTML = '<div class="chat-empty" style="grid-column:1/-1;">Belum ada foto verifikasi untuk hari ini.</div>'; }
-  document.getElementById('verif-modal').classList.remove('hidden');
-}
-function closeVerifModal(){
-  document.getElementById('verif-modal').classList.add('hidden');
-  activeVerifRowIdx = null;
-}
-function openLightbox(src, caption){
-  document.getElementById('lightbox-img').src = src;
-  document.getElementById('lightbox-cap').textContent = caption;
-  document.getElementById('lightbox-overlay').classList.add('open');
-}
-function closeLightbox(){
-  document.getElementById('lightbox-overlay').classList.remove('open');
-}
-function printVerificationRow(){
-  const r = currentReportRows[activeVerifRowIdx];
-  if(!r) return;
-  const area = document.getElementById('print-verif-area');
-  const cards = STAGES.filter(s=>r[s.key]).map(s=>{
-    const rec = r[s.key];
-    const time = rec.time ? new Date(rec.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'}) : '';
-    const statusTxt = attStatusLabel(rec.status);
-    return `<div class="pv-card">
-      ${rec.photo ? `<img src="${rec.photo}">` : `<div class="pv-empty">Tanpa foto</div>`}
-      <div class="pv-cap">${s.label}<br>${time} · ${statusTxt}</div>
-    </div>`;
-  }).join('');
-  area.innerHTML = `
-    <h2>Verifikasi Kehadiran — Foto Wajah</h2>
-    <p>${(officeSettings&&officeSettings.name)||'Instansi'} · ${r.empName||r.empId} · ${new Date(r.date).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
-    ${cards ? `<div class="pv-grid">${cards}</div>` : '<p style="margin-top:16px;">Tidak ada data absensi pada tanggal ini.</p>'}
-    <p style="margin-top:24px;font-size:11px;">Dicetak: ${fmtDateLong(new Date())} ${fmtTime(new Date())}</p>
-  `;
-  document.body.classList.add('printing-verif');
-  window.print();
-}
-window.addEventListener('afterprint', ()=>{
-  document.body.classList.remove('printing-verif');
-});
-
-/* =========================================================================
-   ADMIN: TEGURAN / CHAT
-   Collection datar chat_messages, difilter dengan where('empUid','==',...).
-   Ini kenapa "kolom chat teguran hilang" sebelumnya: pola lama
-   (messages/{uid}/chat/{msgId}) butuh security rule TERPISAH untuk
-   subcollection-nya -- kalau lupa ditulis, onSnapshot gagal diam-diam dan
-   daftar/pesan terlihat kosong tanpa sebab. Sekarang errornya juga
-   ditampilkan lewat showAdminError supaya tidak "hilang" tanpa jejak lagi.
-   ========================================================================= */
-async function loadChatEmployeeList(){
-  const list=document.getElementById('chat-emp-list');
-  list.innerHTML='';
-  if(allEmployees.length===0){
-    list.innerHTML='<div class="chat-empty">Belum ada data karyawan. Buka tab Karyawan dulu.</div>';
-    return;
-  }
-  allEmployees.forEach(emp=>{
-    const el=document.createElement('div');
-    el.className='chat-emp-item'+(emp.uid===adminChatEmpId?' active':'');
-    el.textContent = emp.name+' ('+emp.empId+')';
-    el.onclick=()=>selectChatEmployee(emp.uid);
-    list.appendChild(el);
-  });
-}
-function selectChatEmployee(uid){
-  adminChatEmpId = uid;
-  loadChatEmployeeList();
-  document.getElementById('chat-input-box').disabled=false;
-  document.getElementById('chat-send-btn').disabled=false;
-  if(adminChatUnsub) adminChatUnsub();
-  const wrap=document.getElementById('chat-thread-msgs');
-  wrap.innerHTML='<div class="chat-empty">Memuat percakapan…</div>';
-  adminChatUnsub = db.collection(COL_CHAT)
-    .where('empUid','==', uid)
-    .orderBy('timestamp','asc')
-    .onSnapshot(snap=>{
-      wrap.innerHTML='';
-      if(snap.empty){ wrap.innerHTML='<div class="chat-empty">Belum ada pesan. Kirim teguran atau catatan pertama.</div>'; return; }
-      snap.forEach(doc=>{
-        const m=doc.data();
-        const b=document.createElement('div');
-        b.className='bubble '+(m.from==='admin'?'out':'in');
-        const time = m.timestamp ? new Date(m.timestamp.toDate?m.timestamp.toDate():m.timestamp).toLocaleString('id-ID') : '';
-        b.innerHTML = escapeHtml(m.text) + `<small>${time}${m.from==='admin' && m.read?' · dibaca':''}</small>`;
-        wrap.appendChild(b);
-      });
-      wrap.scrollTop = wrap.scrollHeight;
-    }, err=>{
-      showAdminError(explainFirestoreError(err, 'percakapan teguran'));
-      wrap.innerHTML = '<div class="chat-empty">Gagal memuat percakapan. Lihat pesan error di atas.</div>';
-    });
-}
-async function sendTeguran(){
-  const box=document.getElementById('chat-input-box');
-  const text=box.value.trim();
-  if(!text || !adminChatEmpId) return;
-  box.value='';
-  try{
-    await db.collection(COL_CHAT).add({
-      empUid: adminChatEmpId, from:'admin', text,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp(), read:false
-    });
-  }catch(e){
-    toast(explainFirestoreError(e, 'kirim teguran'), true);
-    box.value = text; // kembalikan teks supaya tidak hilang kalau gagal kirim
-  }
-}
-
-/* =========================================================================
-   INIT
-   ========================================================================= */
-loadOfficeSettings();
-handleGoogleRedirectResult();
-</script>
-</body>
-</html>
+  STAG
